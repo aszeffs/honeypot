@@ -22,15 +22,14 @@ Provisioning needs temporary internet access to download the Ubuntu box and pack
    vagrant up
    ```
 
-2. Verify the host can reach the VM at `192.168.56.10`.
-3. Complete package and service installation while the controlled connection is enabled.
-4. Run the disconnect procedure:
+2. Vagrant installs the pinned Cowrie release, runs its credential-redaction acceptance test, and disconnects the NAT adapter after provisioning.
+3. If the disconnect trigger did not run, disconnect manually:
 
    ```powershell
    .\scripts\disconnect_runtime.ps1
    ```
 
-The disconnect procedure removes NAT and all NAT port-forwarding rules. Only the Host-only adapter should remain.
+The disconnect procedure removes NAT and all NAT port-forwarding rules. Only the Host-only adapter should remain. Cowrie runs as the unprivileged `cowrie` user in emulated-shell mode.
 
 ## Runtime isolation
 
@@ -53,11 +52,20 @@ The verifier checks that:
 
 - the Windows host has a route to `192.168.56.0/24`;
 - the guest cannot reach `1.1.1.1`;
+- the guest firewall denies outbound traffic and limits inbound services to the Windows host;
 - the guest has no routed LAN connection;
-- the host can reach intended lab SSH port `22` and dashboard port `8080`;
+- the host can reach management SSH port `22`, Cowrie port `2222`, and dashboard port `8080`;
 - VirtualBox has no NAT, bridged, NAT Network, or port-forwarding rule.
 
-During this ticket, `192.168.56.10:22` is the intended lab service. Port `8080` is reserved for the future analyst dashboard. Any service other than SSH or the reserved dashboard port should be considered a configuration defect.
+The Cowrie sensor is available at `192.168.56.10:2222`; port `22` is reserved for local Vagrant management. Port `8080` is reserved for the future analyst dashboard. Any other listener should be considered a configuration defect.
+
+Run the sentinel-password test again at any time:
+
+```powershell
+vagrant ssh -c "sudo /opt/cowrie/venv/bin/python /vagrant/scripts/verify_cowrie_redaction.py"
+```
+
+The test submits a generated password to the local sensor and scans every Cowrie state file and its system journal for that sentinel. Cowrie is pinned to commit `894d398712b8558dca7a3a8ef6b427337b988d91` (v2.9.8); the version-specific patch removes password fields and values from login events before dispatch, sends file artifacts to `/dev/null`, and removes the emulated SCP command.
 
 ## Reconnecting for updates
 

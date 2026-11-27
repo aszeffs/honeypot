@@ -1,0 +1,74 @@
+diff --git a/src/cowrie/commands/__init__.py b/src/cowrie/commands/__init__.py
+index 719752b..4fefa47 100644
+--- a/src/cowrie/commands/__init__.py
++++ b/src/cowrie/commands/__init__.py
+@@ -44 +43,0 @@ __all__ = [
+-    "scp",
+diff --git a/src/cowrie/core/artifact.py b/src/cowrie/core/artifact.py
+index 24bc751..eb017c0 100644
+--- a/src/cowrie/core/artifact.py
++++ b/src/cowrie/core/artifact.py
+@@ -27 +26,0 @@ import os
+-import tempfile
+@@ -30,2 +28,0 @@ from typing import Any, TYPE_CHECKING
+-from twisted.python import log
+-
+@@ -44,4 +41,2 @@ class Artifact:
+-        self.fp = tempfile.NamedTemporaryFile(  # pylint: disable=R1732
+-            dir=self.artifactDir, delete=False
+-        )
+-        self.tempFilename = self.fp.name
++        self.fp = open(os.devnull, "wb")
++        self.tempFilename = os.devnull
+@@ -51,0 +47,2 @@ class Artifact:
++        self._hasher = hashlib.sha256()
++        self._size = 0
+@@ -54 +51 @@ class Artifact:
+-        return self.fp
++        return self
+@@ -65,0 +63,2 @@ class Artifact:
++        self._hasher.update(data)
++        self._size += len(data)
+@@ -72,6 +71,3 @@ class Artifact:
+-        size: int = self.fp.tell()
+-        if size == 0 and not keepEmpty:
+-            try:
+-                os.remove(self.fp.name)
+-            except FileNotFoundError:
+-                pass
++        if self._size == 0 and not keepEmpty:
++            self.fp.close()
++            self.closed = True
+@@ -80,2 +75,0 @@ class Artifact:
+-        self.fp.seek(0)
+-        data = self.fp.read()
+@@ -84,13 +78,2 @@ class Artifact:
+-
+-        self.shasum = hashlib.sha256(data).hexdigest()
+-        self.shasumFilename = os.path.join(self.artifactDir, self.shasum)
+-
+-        if os.path.exists(self.shasumFilename):
+-            log.msg("Not storing duplicate content " + self.shasum)
+-            os.remove(self.fp.name)
+-        else:
+-            os.rename(self.fp.name, self.shasumFilename)
+-            umask = os.umask(0)
+-            os.umask(umask)
+-            os.chmod(self.shasumFilename, 0o666 & ~umask)
+-
++        self.shasum = self._hasher.hexdigest()
++        self.shasumFilename = os.devnull
+diff --git a/src/cowrie/core/checkers.py b/src/cowrie/core/checkers.py
+index 5c23ed8..5391fb1 100644
+--- a/src/cowrie/core/checkers.py
++++ b/src/cowrie/core/checkers.py
+@@ -135 +135 @@ class HoneypotPasswordChecker:
+-                format="login attempt [%(username)s/%(password)s] succeeded",
++                format="login attempt [%(username)s] succeeded (password redacted)",
+@@ -137 +136,0 @@ class HoneypotPasswordChecker:
+-                password=thepassword,
+@@ -143 +142 @@ class HoneypotPasswordChecker:
+-            format="login attempt [%(username)s/%(password)s] failed",
++            format="login attempt [%(username)s] failed (password redacted)",
+@@ -145 +143,0 @@ class HoneypotPasswordChecker:
+-            password=thepassword,

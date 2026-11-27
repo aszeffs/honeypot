@@ -28,6 +28,22 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "PASS: guest cannot reach 1.1.1.1."
 }
 
+Write-Host "Checking guest firewall policy..."
+$firewallOutput = vagrant ssh -c "sudo ufw status verbose"
+if ($LASTEXITCODE -ne 0) {
+    $failures += "Could not inspect the guest firewall."
+} else {
+    $firewall = $firewallOutput -join "`n"
+    if ($firewall -notmatch "Default: deny \(incoming\), deny \(outgoing\)") {
+        $failures += "Guest firewall must deny unsolicited inbound and all outbound traffic."
+    }
+    foreach ($port in @(22, 2222, 8080)) {
+        if ($firewall -notmatch "(?m)^$port/tcp\s+ALLOW IN\s+192\.168\.56\.1\s*$") {
+            $failures += "Guest firewall does not restrict host access to port $port."
+        }
+    }
+}
+
 Write-Host "Checking guest LAN isolation..."
 $lanResult = vagrant ssh -c "ip route | grep -Ev '^192\.168\.56\.|^169\.254\.'"
 if (($LASTEXITCODE -eq 0) -and ($lanResult.Trim())) {
@@ -37,12 +53,12 @@ if (($LASTEXITCODE -eq 0) -and ($lanResult.Trim())) {
 }
 
 Write-Host "Checking intended host-to-service ports..."
-foreach ($port in @(22, 8080)) {
+foreach ($port in @(22, 2222, 8080)) {
     $probe = Test-NetConnection -ComputerName "192.168.56.10" -Port $port -InformationLevel Quiet
     if ($probe) {
         Write-Host "PASS: host can reach intended port $port."
-    } elseif ($port -eq 22) {
-        $failures += "Host cannot reach required SSH service on port 22."
+    } elseif ($port -in @(22, 2222)) {
+        $failures += "Host cannot reach required SSH service on port $port."
     } else {
         Write-Host "INFO: dashboard port $port is reserved for the future dashboard service."
     }
@@ -54,13 +70,19 @@ if ($LASTEXITCODE -ne 0) {
     $failures += "Could not inspect guest listening services."
 } else {
     $unexpectedListeners = $listeners | Where-Object {
-        $_ -match ":(\d+)\s+" -and $Matches[1] -notin @("22", "8080")
+        $_ -match ":(\d+)\s+" -and $Matches[1] -notin @("22", "2222", "8080")
     }
     if ($unexpectedListeners) {
         $failures += "Guest has unintended listening services: $($unexpectedListeners -join '; ')"
     } else {
-        Write-Host "PASS: guest listeners are limited to intended ports 22 and 8080."
+        Write-Host "PASS: guest listeners are limited to management, Cowrie, and dashboard ports."
     }
+}
+
+Write-Host "Checking Cowrie service..."
+$cowrieService = vagrant ssh -c "systemctl is-active cowrie.service"
+if (($LASTEXITCODE -ne 0) -or (($cowrieService -join "`n").Trim() -ne "active")) {
+    $failures += "Cowrie service is not active."
 }
 
 Write-Host "Checking VirtualBox network configuration..."

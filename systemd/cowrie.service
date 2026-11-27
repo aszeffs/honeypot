@@ -1,0 +1,22 @@
+[Unit]
+Description=Cowrie emulated-shell sensor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cowrie
+Group=cowrie
+WorkingDirectory=/opt/cowrie/source
+Environment=COWRIE_STDOUT=yes
+ExecStart=/opt/cowrie/venv/bin/cowrie start
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cowrie/source/var
+
+[Install]
+WantedBy=multi-user.target

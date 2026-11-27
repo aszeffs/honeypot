@@ -48,6 +48,36 @@ class LabAcceptanceTests(unittest.TestCase):
         self.assertIn("useradd", provision)
         self.assertIn("sudo -u", provision)
 
+    def test_cowrie_is_pinned_and_restricted_to_the_local_emulated_shell(self):
+        provision = (ROOT / "scripts" / "provision.sh").read_text(encoding="utf-8")
+        config = (ROOT / "config" / "cowrie.cfg").read_text(encoding="utf-8")
+        service = (ROOT / "systemd" / "cowrie.service").read_text(encoding="utf-8")
+        patch = (ROOT / "patches" / "cowrie-v2.9.8.patch").read_text(encoding="utf-8")
+
+        self.assertIn("894d398712b8558dca7a3a8ef6b427337b988d91", provision)
+        self.assertIn("apply --unidiff-zero --check", provision)
+        self.assertIn("backend = shell", config)
+        self.assertIn("auth_class = UserDB", config)
+        self.assertIn("interface=192.168.56.10", config)
+        self.assertIn("ttylog = false", config)
+        self.assertIn("sftp_enabled = false", config)
+        self.assertIn("forwarding = false", config)
+        self.assertIn("forward_redirect = false", config)
+        self.assertIn("forward_tunnel = false", config)
+        self.assertIn("enabled = false", config)
+        self.assertIn('-    "scp",', patch)
+        self.assertIn("self.shasumFilename = os.devnull", patch)
+        self.assertIn("ExecStart=", service)
+        self.assertIn("User=cowrie", service)
+
+    def test_runtime_acceptance_checks_cover_cowrie_and_firewall(self):
+        script = (ROOT / "scripts" / "verify_lab.ps1").read_text(encoding="utf-8")
+        runbook = (ROOT / "docs" / "LAB-RUNBOOK.md").read_text(encoding="utf-8")
+
+        self.assertIn("2222", script)
+        self.assertIn("deny \\(outgoing\\)", script)
+        self.assertIn("verify_cowrie_redaction.py", runbook)
+
 
 if __name__ == "__main__":
     unittest.main()
