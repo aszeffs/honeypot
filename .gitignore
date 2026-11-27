@@ -1,2 +1,3 @@
 .vagrant/
 *.log
+.impeccable/config.local.json
